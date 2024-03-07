@@ -1,6 +1,8 @@
 using Daintwon.Models;
 using Daintwon.Repositories.Implementations;
 using Daintwon.Repositories.Interfaces;
+using Daintwon.Services.Implementations;
+using Daintwon.Services.Interfaces;
 using Daintwon.Utils.Implementations;
 using Daintwon.Utils.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -23,6 +25,9 @@ x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve);
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRolesRepository, RolesRepository>();
+
+// Services
+builder.Services.AddScoped<IUserService, UserService>();
 
 // Other services
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
