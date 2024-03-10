@@ -1,15 +1,17 @@
 ﻿using Daintwon.Models;
 using Daintwon.Models.DTOs;
-using Daintwon.Repositories.Implementations;
 using Daintwon.Repositories.Interfaces;
 using Daintwon.Services.Interfaces;
+using Daintwon.Utils;
+using Daintwon.Utils.Interfaces;
 
 namespace Daintwon.Services.Implementations
 {
-    public class UserService(IUserRepository userRepository, IRolesRepository rolesRepository) : IUserService
+    public class UserService(IUserRepository userRepository, IRolesRepository rolesRepository, IPasswordHasher passwordHasher) : IUserService
     {
         private readonly IUserRepository _userRepository = userRepository;
         private readonly IRolesRepository _rolesRepository = rolesRepository;
+        private readonly IPasswordHasher _passwordHasher = passwordHasher;
 
         public class UserServiceException(string message) : Exception(message)
         {
@@ -17,7 +19,55 @@ namespace Daintwon.Services.Implementations
 
         public User CreateUser(UserRegisterDTO user)
         {
-            throw new NotImplementedException();
+            if (string.IsNullOrEmpty(user.Email) || string.IsNullOrEmpty(user.Password) || string.IsNullOrEmpty(user.FirstName) || string.IsNullOrEmpty(user.LastName))
+                throw new UserServiceException("all data is required");
+
+            if (!EmailValidation.IsValidEmail(user.Email))
+            {
+                throw new UserServiceException("email not valid");
+            }
+
+            if (user.Password.Length > 8)
+            {
+                throw new UserServiceException("password must be at least 8 characters");
+            }
+
+            string hashedPassword = _passwordHasher.HashPassword(user.Password, out string salt);
+
+            var newUser = new User()
+            {
+                Email = user.Email,
+                Password = hashedPassword,
+                Salt = salt,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+            };
+
+            _userRepository.Save(newUser);
+
+            if (user.Email.ToLowerInvariant().Split('@')[1].Contains("daintwon"))
+            {
+                var adminRole = new Roles()
+                {
+                    RoleName = "Admin",
+                    User = newUser
+                };
+
+                newUser.Roles = [adminRole];
+                _rolesRepository.Save(adminRole);
+            }
+            else
+            {
+                var clientRole = new Roles()
+                {
+                    RoleName = "Client",
+                    User = newUser
+                };
+
+                newUser.Roles = [clientRole];
+                _rolesRepository.Save(clientRole);
+            }
+            return newUser;
         }
 
         public List<UserDTO> GetAllUsers()
@@ -35,12 +85,28 @@ namespace Daintwon.Services.Implementations
 
         public UserDTO GetCurrentUser(string email)
         {
-            throw new NotImplementedException();
+            var user = _userRepository.FindByEmail(email);
+
+            if (user == null)
+            {
+                throw new UserServiceException("users email not found");
+            }
+
+            var userDTO = new UserDTO(user);
+            return userDTO;
         }
 
         public UserDTO GetUserById(long id)
         {
-            throw new NotImplementedException();
+            var user = _userRepository.FindById(id);
+
+            if (user == null)
+            {
+                throw new UserServiceException("user doesn't exists");
+            }
+
+            var userDTO = new UserDTO(user);
+            return userDTO;
         }
     }
 }
